@@ -155,7 +155,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const aiText = data.choices[0].message.content.replace(/\*/g, '').replace(/#/g, '').trim();
 
             appendMessage('Assistant', aiText, false);
-            speakResponse(aiText);
+            // Get the stop button from the just-appended message
+            const lastMsg = chatHistory.lastElementChild;
+            speakResponse(aiText, lastMsg ? lastMsg._stopBtn : null);
 
             micStatusLabel.textContent = 'Tap microphone to speak';
             statusText.textContent = 'Groq LLaMA 3.3 Connected';
@@ -164,7 +166,8 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Groq API Error:', err);
             const fallbackMsg = "I'm having trouble processing that request right now. Please verify your Groq API Key.";
             appendMessage('Assistant', fallbackMsg, false);
-            speakResponse(fallbackMsg);
+            const lastErrMsg = chatHistory.lastElementChild;
+            speakResponse(fallbackMsg, lastErrMsg ? lastErrMsg._stopBtn : null);
             micStatusLabel.textContent = 'Tap microphone to speak';
             statusText.textContent = 'API Error';
         }
@@ -185,22 +188,57 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * Text-to-Speech Output via SpeechSynthesis API
+     * @param {string} text - The text to speak
+     * @param {HTMLElement|null} stopBtn - Optional stop button to update state when speech ends
      */
-    function speakResponse(text) {
+    function speakResponse(text, stopBtn = null) {
         if (!synth) return;
         synth.cancel(); // Stop previous speech
 
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 0.88; // Slower, comfortable pace for clear word listening
+        // Reset all other stop buttons across chat
+        document.querySelectorAll('.msg-stop-btn.is-speaking').forEach(btn => {
+            btn.classList.remove('is-speaking');
+            btn.innerHTML = getStopIcon() + ' Stop';
+        });
 
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.88;
         utterance.pitch = 1.0;
 
-        // Pick clear English voice if available
         const voices = synth.getVoices();
         const preferredVoice = voices.find(v => v.lang.includes('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha')));
         if (preferredVoice) utterance.voice = preferredVoice;
 
+        if (stopBtn) {
+            stopBtn.classList.add('is-speaking');
+            stopBtn.innerHTML = getStopActiveIcon() + ' Stop';
+        }
+
+        utterance.onend = () => {
+            if (stopBtn) {
+                stopBtn.classList.remove('is-speaking');
+                stopBtn.innerHTML = getStopIcon() + ' Stop';
+            }
+        };
+        utterance.onerror = () => {
+            if (stopBtn) {
+                stopBtn.classList.remove('is-speaking');
+                stopBtn.innerHTML = getStopIcon() + ' Stop';
+            }
+        };
+
         synth.speak(utterance);
+    }
+
+    /** SVG icon helpers */
+    function getStopIcon() {
+        return '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="4" y="4" width="16" height="16" rx="2"></rect></svg>';
+    }
+    function getStopActiveIcon() {
+        return '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="4" y="4" width="16" height="16" rx="2"><animate attributeName="opacity" values="1;0.4;1" dur="1s" repeatCount="indefinite"/></rect></svg>';
+    }
+    function getRepeatIcon() {
+        return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>';
     }
 
     /**
@@ -226,6 +264,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
         content.appendChild(name);
         content.appendChild(textPara);
+
+        // Add Stop & Repeat buttons for assistant messages
+        if (!isUser) {
+            const actions = document.createElement('div');
+            actions.className = 'msg-actions';
+
+            const stopBtn = document.createElement('button');
+            stopBtn.className = 'msg-action-btn msg-stop-btn';
+            stopBtn.innerHTML = getStopIcon() + ' Stop';
+            stopBtn.title = 'Stop reading this response';
+            stopBtn.addEventListener('click', () => {
+                if (synth && synth.speaking) {
+                    synth.cancel();
+                    stopBtn.classList.remove('is-speaking');
+                    stopBtn.innerHTML = getStopIcon() + ' Stop';
+                }
+            });
+
+            const repeatBtn = document.createElement('button');
+            repeatBtn.className = 'msg-action-btn msg-repeat-btn';
+            repeatBtn.innerHTML = getRepeatIcon() + ' Repeat';
+            repeatBtn.title = 'Repeat this response';
+            repeatBtn.addEventListener('click', () => {
+                speakResponse(text, stopBtn);
+            });
+
+            actions.appendChild(stopBtn);
+            actions.appendChild(repeatBtn);
+            content.appendChild(actions);
+
+            // Store stopBtn reference so speakResponse can update it on initial read
+            msgDiv._stopBtn = stopBtn;
+        }
+
         msgDiv.appendChild(avatar);
         msgDiv.appendChild(content);
 
