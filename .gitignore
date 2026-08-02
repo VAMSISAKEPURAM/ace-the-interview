@@ -1,0 +1,21 @@
+# Environment & Secrets
+.env
+*.env
+
+# Data & Audio Storage
+data/audio/*
+data/chat_logs/*
+logs/*
+!data/audio/.gitkeep
+!data/chat_logs/.gitkeep
+
+# Python Bytecode & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Virtual Environments
+venv/
+env/
+ENV/
