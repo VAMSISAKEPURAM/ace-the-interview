@@ -137,9 +137,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     messages: [
                         {
                             role: 'system',
-                            content: 'You are an expert Job Interview Coach and Candidate Advisor. When asked an interview question or topic, provide a realistic, high-impact sample response demonstrating EXACTLY how a candidate should articulate their answer in a real job interview. Speak directly in first-person ("In my experience...") as the candidate giving their spoken response. Keep it structured, professional, and concise (2-4 sentences) without markdown formatting, bullet points, asterisks, or intro filler.'
+                            content: 'You are an expert Data Science and Generative AI Interview Coach. STRICT DOMAIN RULE: You ONLY answer questions related to Data Science, Machine Learning, Deep Learning, Statistics, MLOps, NLP, Computer Vision, and Generative AI (LLMs, RAG, Transformers, Fine-Tuning, Diffusion). If the user asks a question OUTSIDE of Data Science and Generative AI (e.g. cooking, general non-AI topics), respond EXACTLY: "I am specifically designed for Data Science and Generative AI interview preparation. Please ask a question related to Data Science, Machine Learning, or AI concepts." FOR DATA SCIENCE & GEN-AI QUESTIONS: Provide a clear, easy-to-understand sample response demonstrating EXACTLY how a candidate should articulate their answer in a real Data Science job interview. Speak directly in first-person ("In my experience...") as the candidate giving their spoken response. Keep it structured, clear, professional, and concise (2-4 sentences) without markdown formatting, bullet points, asterisks, or intro filler.'
                         },
-
                         { role: 'user', content: userPrompt }
                     ],
                     temperature: 0.7,
@@ -192,7 +191,8 @@ document.addEventListener('DOMContentLoaded', () => {
         synth.cancel(); // Stop previous speech
 
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.0;
+        utterance.rate = 0.88; // Slower, comfortable pace for clear word listening
+
         utterance.pitch = 1.0;
 
         // Pick clear English voice if available
