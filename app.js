@@ -137,8 +137,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     messages: [
                         {
                             role: 'system',
-                            content: 'You are a helpful, friendly, and concise AI interview assistant. Keep answers brief (1-3 sentences), natural, and clear for voice playback without markdown asterisks or special characters.'
+                            content: 'You are an expert Job Interview Coach and Candidate Advisor. When asked an interview question or topic, provide a realistic, high-impact sample response demonstrating EXACTLY how a candidate should articulate their answer in a real job interview. Speak directly in first-person ("In my experience...") as the candidate giving their spoken response. Keep it structured, professional, and concise (2-4 sentences) without markdown formatting, bullet points, asterisks, or intro filler.'
                         },
+
                         { role: 'user', content: userPrompt }
                     ],
                     temperature: 0.7,
