@@ -20,7 +20,7 @@ from services.llm_service import LLMService
 from services.text_to_speech import TextToSpeechService
 from conversation.history import ConversationHistory
 from conversation.memory import ConversationMemory
-from conversation.prompt import DEFAULT_SYSTEM_PROMPT
+from conversation.prompt import DEFAULT_SYSTEM_PROMPT, build_system_prompt_with_resume
 
 # Validate environment settings on startup
 validate_environment()
@@ -76,12 +76,12 @@ def health_check():
 
 
 @app.post("/api/chat/voice")
-async def handle_voice_chat(file: UploadFile = File(...)):
+async def handle_voice_chat(file: UploadFile = File(...), resume_text: str = Form("")):
     """
     Handles user recorded voice audio upload:
     1. Saves uploaded audio file
     2. Runs Hugging Face Speech-to-Text (STT)
-    3. Queries Groq LLM
+    3. Queries Groq LLM (with optional candidate resume context)
     4. Runs Hugging Face Text-to-Speech (TTS)
     5. Returns transcribed text, assistant text, and audio base64 payload.
     """
@@ -98,6 +98,9 @@ async def handle_voice_chat(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail="Failed to save uploaded audio file.")
 
     with Timer("Voice API Pipeline"):
+        # Update system prompt with resume context if provided
+        history.system_prompt = build_system_prompt_with_resume(resume_text)
+
         # Stage 1: Speech-to-Text
         user_text = stt_service.process_audio(input_path)
         safe_delete_file(input_path)  # Cleanup uploaded temp file
@@ -138,7 +141,7 @@ async def handle_voice_chat(file: UploadFile = File(...)):
         })
 
 @app.post("/api/chat/text")
-async def handle_text_chat(text: str = Form(...)):
+async def handle_text_chat(text: str = Form(...), resume_text: str = Form("")):
     """
     Handles text input fallback.
     """
@@ -147,6 +150,9 @@ async def handle_text_chat(text: str = Form(...)):
         raise HTTPException(status_code=400, detail="Text message cannot be empty.")
 
     with Timer("Text API Pipeline"):
+        # Update system prompt with resume context if provided
+        history.system_prompt = build_system_prompt_with_resume(resume_text)
+
         history.add_user_message(user_text)
         assistant_text = llm_service.get_response(memory)
         history.add_assistant_message(assistant_text)

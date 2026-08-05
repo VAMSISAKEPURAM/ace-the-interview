@@ -11,6 +11,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     
+    <!-- PDF.js for Browser PDF Parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
     <!-- Stylesheet -->
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -32,9 +35,22 @@
                 </div>
             </div>
             
-            <div class="status-badge" id="statusBadge">
-                <span class="status-dot green"></span>
-                <span class="status-text" id="statusText">Groq LLaMA 3.3 Connected</span>
+            <div class="header-right">
+                <button id="resumeBtn" class="resume-badge-button" title="Manage Candidate Resume Context">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                    </svg>
+                    <span>Resume</span>
+                    <span class="status-dot grey" id="resumeDot"></span>
+                </button>
+
+                <div class="status-badge" id="statusBadge">
+                    <span class="status-dot green"></span>
+                    <span class="status-text" id="statusText">Groq LLaMA 3.3 Connected</span>
+                </div>
             </div>
         </header>
 
@@ -59,7 +75,7 @@
                         <div class="avatar">🤖</div>
                         <div class="message-content">
                             <div class="sender-name">Voice Assistant</div>
-                            <p>Hello! I am your AI Interview Assistant powered by Groq LLaMA 3.3. Tap the microphone below to start speaking!</p>
+                            <p>Hello! I am your AI Interview Assistant powered by Groq LLaMA 3.3. Tap the microphone below to start speaking, or upload your resume in the top right to get personalized answers based on your experience!</p>
                         </div>
                     </div>
                 </div>
@@ -104,6 +120,72 @@
         <footer class="app-footer">
             <p>Powered by <strong>Groq Cloud API</strong> (LLaMA 3.3) &amp; <strong>Web Speech API</strong> (100% Free Static Space)</p>
         </footer>
+    </div>
+
+    <!-- Resume Context Modal -->
+    <div id="resumeModal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                    </svg>
+                    <h3>Candidate Resume Context</h3>
+                </div>
+                <button id="closeResumeModalBtn" class="close-btn" aria-label="Close modal">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <p class="modal-description">
+                    Upload or paste your resume. The AI voice assistant will ground its interview responses directly in your actual projects, skills, tools, and experience!
+                </p>
+
+                <!-- Mode Toggle -->
+                <div class="toggle-row">
+                    <div class="toggle-label">
+                        <strong>Enable Resume Personalization</strong>
+                        <span class="toggle-sub">Tailor spoken answers to your actual resume background</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="resumeToggle" checked>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+
+                <!-- PDF Upload Box -->
+                <div class="upload-dropzone" id="dropzone">
+                    <input type="file" id="resumeFileInput" accept=".pdf,.txt" class="file-input-hidden" />
+                    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <div class="dropzone-text">
+                        <strong>Click to upload PDF</strong> or drag &amp; drop your resume here
+                    </div>
+                    <span class="dropzone-hint">Supports PDF (.pdf) or Plain Text (.txt)</span>
+                </div>
+
+                <!-- Text Paste Alternative -->
+                <div class="paste-section">
+                    <label for="resumeTextArea">Or Paste Resume Text Directly:</label>
+                    <textarea id="resumeTextArea" rows="6" placeholder="Paste your work experience, projects, skills, and metrics here..."></textarea>
+                </div>
+
+                <!-- Parsed Status Preview -->
+                <div class="resume-status-box" id="resumeStatusBox">
+                    <span id="resumeStatusText">No resume loaded. Upload a PDF or paste text above.</span>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button id="clearResumeBtn" class="btn-secondary">Clear Resume</button>
+                <button id="saveResumeBtn" class="btn-primary">Save &amp; Apply</button>
+            </div>
+        </div>
     </div>
 
     <!-- Script -->

@@ -273,3 +273,29 @@ Do not produce code unless specifically requested.
 
 Your objective is to simulate a realistic interview experience rather than a quiz.
 """
+
+RESUME_CONTEXT_TEMPLATE = """
+
+=========================
+CANDIDATE RESUME CONTEXT
+=========================
+You are answering on behalf of the candidate whose Resume details are provided below.
+Whenever relevant, explicitly draw from the candidate's actual projects, technologies, metrics, tools, and work experience mentioned in this resume.
+
+CANDIDATE RESUME:
+{resume_text}
+
+INSTRUCTIONS FOR RESUME-GROUNDED ANSWERS:
+• Speak in the 1st person ("In my previous project at...", "I built a pipeline using...", "I encountered...").
+• Use the STAR method (Situation, Task, Action, Result) for project/scenario questions.
+• Weave in real tools, metrics, and achievements from the candidate's resume naturally.
+• If the question is purely conceptual (e.g. "What is AUC-ROC?"), explain the concept first, then briefly connect it to how you used it in one of your resume projects.
+"""
+
+
+def build_system_prompt_with_resume(resume_text: str = "") -> str:
+    """Builds system prompt dynamically, injecting candidate resume context if provided."""
+    base_prompt = DEFAULT_SYSTEM_PROMPT
+    if resume_text and resume_text.strip():
+        return base_prompt + RESUME_CONTEXT_TEMPLATE.format(resume_text=resume_text.strip())
+    return base_prompt

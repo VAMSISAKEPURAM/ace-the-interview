@@ -15,6 +15,189 @@ document.addEventListener('DOMContentLoaded', () => {
     const canvasCtx = canvas.getContext('2d');
     const statusText = document.getElementById('statusText');
 
+    // Resume Context Elements & State
+    const resumeBtn = document.getElementById('resumeBtn');
+    const resumeDot = document.getElementById('resumeDot');
+    const resumeModal = document.getElementById('resumeModal');
+    const closeResumeModalBtn = document.getElementById('closeResumeModalBtn');
+    const resumeToggle = document.getElementById('resumeToggle');
+    const dropzone = document.getElementById('dropzone');
+    const resumeFileInput = document.getElementById('resumeFileInput');
+    const resumeTextArea = document.getElementById('resumeTextArea');
+    const resumeStatusBox = document.getElementById('resumeStatusBox');
+    const resumeStatusText = document.getElementById('resumeStatusText');
+    const saveResumeBtn = document.getElementById('saveResumeBtn');
+    const clearResumeBtn = document.getElementById('clearResumeBtn');
+
+    let resumeText = localStorage.getItem('ace_resume_text') || '';
+    let resumeActive = localStorage.getItem('ace_resume_active') !== 'false';
+
+    // Initialize Resume UI State
+    if (resumeTextArea) resumeTextArea.value = resumeText;
+    if (resumeToggle) resumeToggle.checked = resumeActive;
+    updateResumeStatusUI();
+
+    // Modal Event Handlers
+    if (resumeBtn) {
+        resumeBtn.addEventListener('click', () => {
+            resumeModal.classList.remove('hidden');
+        });
+    }
+
+    if (closeResumeModalBtn) {
+        closeResumeModalBtn.addEventListener('click', () => {
+            resumeModal.classList.add('hidden');
+        });
+    }
+
+    if (resumeModal) {
+        resumeModal.addEventListener('click', (e) => {
+            if (e.target === resumeModal) resumeModal.classList.add('hidden');
+        });
+    }
+
+    // PDF Dropzone & File Pick Handler
+    if (dropzone && resumeFileInput) {
+        dropzone.addEventListener('click', () => resumeFileInput.click());
+
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('dragover');
+        });
+
+        dropzone.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                await processResumeFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        resumeFileInput.addEventListener('change', async (e) => {
+            if (e.target.files && e.target.files[0]) {
+                await processResumeFile(e.target.files[0]);
+            }
+        });
+    }
+
+    // Process uploaded File (.pdf or .txt)
+    async function processResumeFile(file) {
+        resumeStatusText.textContent = `Processing file ${file.name}...`;
+        try {
+            if (file.name.endsWith('.pdf')) {
+                const arrayBuffer = await file.arrayBuffer();
+                const extractedText = await extractPdfText(arrayBuffer);
+                resumeTextArea.value = extractedText;
+                resumeStatusText.textContent = `✅ Successfully extracted ${extractedText.split(/\s+/).length} words from PDF! Click "Save & Apply".`;
+            } else {
+                const text = await file.text();
+                resumeTextArea.value = text;
+                resumeStatusText.textContent = `✅ Successfully loaded text file! Click "Save & Apply".`;
+            }
+        } catch (err) {
+            console.error('File parsing error:', err);
+            resumeStatusText.textContent = `❌ Failed to read file: ${err.message || 'Unknown error'}`;
+        }
+    }
+
+    // Extract text from PDF using pdf.js
+    async function extractPdfText(arrayBuffer) {
+        if (typeof pdfjsLib === 'undefined') {
+            throw new Error('PDF.js library is loading or blocked by network.');
+        }
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = '';
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const tokenContent = await page.getTextContent();
+            const pageText = tokenContent.items.map(item => item.str).join(' ');
+            fullText += pageText + '\n';
+        }
+        return fullText.trim();
+    }
+
+    // Save Resume Action
+    if (saveResumeBtn) {
+        saveResumeBtn.addEventListener('click', () => {
+            resumeText = resumeTextArea.value.trim();
+            resumeActive = resumeToggle.checked;
+            localStorage.setItem('ace_resume_text', resumeText);
+            localStorage.setItem('ace_resume_active', resumeActive ? 'true' : 'false');
+            updateResumeStatusUI();
+            resumeModal.classList.add('hidden');
+        });
+    }
+
+    // Clear Resume Action
+    if (clearResumeBtn) {
+        clearResumeBtn.addEventListener('click', () => {
+            resumeText = '';
+            resumeTextArea.value = '';
+            localStorage.removeItem('ace_resume_text');
+            updateResumeStatusUI();
+        });
+    }
+
+    if (resumeToggle) {
+        resumeToggle.addEventListener('change', () => {
+            resumeActive = resumeToggle.checked;
+            localStorage.setItem('ace_resume_active', resumeActive ? 'true' : 'false');
+            updateResumeStatusUI();
+        });
+    }
+
+    // Update Status Indicators in Header & Modal
+    function updateResumeStatusUI() {
+        const hasText = resumeText && resumeText.trim().length > 0;
+        if (resumeActive && hasText) {
+            if (resumeDot) resumeDot.className = 'status-dot active-green';
+            if (resumeStatusBox) {
+                resumeStatusBox.style.background = 'rgba(16, 185, 129, 0.12)';
+                resumeStatusBox.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+                resumeStatusBox.style.color = '#10b981';
+            }
+            if (resumeStatusText) {
+                resumeStatusText.textContent = `🟢 Resume Active (${resumeText.trim().split(/\s+/).length} words loaded)`;
+            }
+        } else if (hasText) {
+            if (resumeDot) resumeDot.className = 'status-dot yellow';
+            if (resumeStatusBox) {
+                resumeStatusBox.style.background = 'rgba(245, 158, 11, 0.12)';
+                resumeStatusBox.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+                resumeStatusBox.style.color = '#f59e0b';
+            }
+            if (resumeStatusText) {
+                resumeStatusText.textContent = `🟡 Resume Saved (Personalization Disabled)`;
+            }
+        } else {
+            if (resumeDot) resumeDot.className = 'status-dot grey';
+            if (resumeStatusBox) {
+                resumeStatusBox.style.background = 'rgba(255, 255, 255, 0.03)';
+                resumeStatusBox.style.borderColor = 'var(--border-color)';
+                resumeStatusBox.style.color = 'var(--text-muted)';
+            }
+            if (resumeStatusText) {
+                resumeStatusText.textContent = `⚪ No resume loaded. Upload a PDF or paste text above.`;
+            }
+        }
+    }
+
+    // Build Dynamic System Prompt with Resume Context
+    function getSystemPrompt() {
+        const basePrompt = 'You are an expert Data Science, Machine Learning, Deep Learning, MLOps, NLP, Computer Vision, and Generative AI Interview Coach. STRICT DOMAIN RULE: You ONLY answer questions related to Data Science, Machine Learning, Deep Learning, Statistics, MLOps, NLP, Computer Vision, and Generative AI (LLMs, RAG, Transformers, Fine-Tuning, Diffusion). If the user asks a question OUTSIDE of Data Science and Generative AI (e.g. cooking, general non-AI topics), respond EXACTLY: "I am specifically designed for Data Science and Generative AI interview preparation. Please ask a question related to Data Science, Machine Learning, or AI concepts." FOR DATA SCIENCE & GEN-AI QUESTIONS: Provide a clear, easy-to-understand response demonstrating EXACTLY how a candidate should articulate their answer in a real Data Science job interview. Speak directly in first-person ("In my experience...") as the candidate giving their spoken response. Keep it structured, clear, professional, and concise (2-4 sentences) without markdown formatting, bullet points, asterisks, or intro filler.';
+
+        if (resumeActive && resumeText && resumeText.trim()) {
+            return basePrompt + `\n\n=========================\nCANDIDATE RESUME CONTEXT\n=========================\nYou are answering on behalf of the candidate whose Resume details are provided below.\nWhenever relevant, explicitly draw from the candidate's actual projects, technologies, metrics, tools, and work experience mentioned in this resume.\n\nCANDIDATE RESUME:\n${resumeText.trim()}\n\nINSTRUCTIONS FOR RESUME-GROUNDED ANSWERS:\n• Speak in the 1st person ("In my previous project at...", "I built a pipeline using...", "I encountered...").\n• Use the STAR method (Situation, Task, Action, Result) for project/scenario questions.\n• Weave in real tools, metrics, and achievements from the candidate's resume naturally.\n• If the question is purely conceptual (e.g. "What is AUC-ROC?"), explain the concept first, then briefly connect it to how you used it in one of your resume projects.`;
+        }
+
+        return basePrompt;
+    }
+
     // Speech Recognition & Synthesis APIs
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
@@ -124,7 +307,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-
         try {
             const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                 method: 'POST',
@@ -137,12 +319,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     messages: [
                         {
                             role: 'system',
-                            content: 'You are an expert Data Science and Generative AI Interview Coach. STRICT DOMAIN RULE: You ONLY answer questions related to Data Science, Machine Learning, Deep Learning, Statistics, MLOps, NLP, Computer Vision, and Generative AI (LLMs, RAG, Transformers, Fine-Tuning, Diffusion). If the user asks a question OUTSIDE of Data Science and Generative AI (e.g. cooking, general non-AI topics), respond EXACTLY: "I am specifically designed for Data Science and Generative AI interview preparation. Please ask a question related to Data Science, Machine Learning, or AI concepts." FOR DATA SCIENCE & GEN-AI QUESTIONS: Provide a clear, easy-to-understand sample response demonstrating EXACTLY how a candidate should articulate their answer in a real Data Science job interview. Speak directly in first-person ("In my experience...") as the candidate giving their spoken response. Keep it structured, clear, professional, and concise (2-4 sentences) without markdown formatting, bullet points, asterisks, or intro filler.'
+                            content: getSystemPrompt()
                         },
                         { role: 'user', content: userPrompt }
                     ],
                     temperature: 0.7,
-                    max_tokens: 250
+                    max_tokens: 300
                 })
             });
 
