@@ -39,6 +39,22 @@ class TestConversationSystem(unittest.TestCase):
         self.assertEqual(pruned[1]["content"], "Q2")
         self.assertEqual(pruned[2]["content"], "A2")
 
+    def test_prompt_resume_and_phrasing_rules(self):
+        from conversation.prompt import build_system_prompt_with_resume, DEFAULT_SYSTEM_PROMPT
+
+        # Test default system prompt rules
+        self.assertIn("IN MY EXPERIENCE", DEFAULT_SYSTEM_PROMPT.upper())
+        self.assertIn("self-introduction", DEFAULT_SYSTEM_PROMPT.lower())
+
+        # Test build system prompt with resume context
+        sample_resume = "Senior Data Scientist with 4 years experience in PyTorch, LLMs, and RAG pipelines."
+        prompt_with_resume = build_system_prompt_with_resume(sample_resume)
+
+        self.assertIn(sample_resume, prompt_with_resume)
+        self.assertIn("SELF-INTRODUCTION REQUESTS", prompt_with_resume)
+        self.assertIn("IN MY EXPERIENCE", prompt_with_resume.upper())
+
 if __name__ == "__main__":
     unittest.main()
+
 
