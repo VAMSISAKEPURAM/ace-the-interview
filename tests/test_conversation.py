@@ -42,9 +42,9 @@ class TestConversationSystem(unittest.TestCase):
     def test_prompt_resume_and_phrasing_rules(self):
         from conversation.prompt import build_system_prompt_with_resume, DEFAULT_SYSTEM_PROMPT
 
-        # Test default system prompt rules
-        self.assertIn("IN MY EXPERIENCE", DEFAULT_SYSTEM_PROMPT.upper())
-        self.assertIn("self-introduction", DEFAULT_SYSTEM_PROMPT.lower())
+        # Test default system prompt candidate persona
+        self.assertIn("candidate", DEFAULT_SYSTEM_PROMPT.lower())
+        self.assertIn("interviewer", DEFAULT_SYSTEM_PROMPT.lower())
 
         # Test build system prompt with resume context
         sample_resume = "Senior Data Scientist with 4 years experience in PyTorch, LLMs, and RAG pipelines."
@@ -52,7 +52,6 @@ class TestConversationSystem(unittest.TestCase):
 
         self.assertIn(sample_resume, prompt_with_resume)
         self.assertIn("SELF-INTRODUCTION", prompt_with_resume.upper())
-        self.assertIn("IN MY EXPERIENCE", prompt_with_resume.upper())
 
 if __name__ == "__main__":
     unittest.main()
