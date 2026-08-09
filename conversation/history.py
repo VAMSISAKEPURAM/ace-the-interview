@@ -12,13 +12,25 @@ class ConversationHistory:
     Manages in-memory message queue for OpenAI format chat completion.
     """
     def __init__(self, system_prompt: str = DEFAULT_SYSTEM_PROMPT):
-        self.system_prompt = system_prompt
+        self._system_prompt = system_prompt
         self.messages: List[Dict[str, str]] = []
         self._reset()
 
+    @property
+    def system_prompt(self) -> str:
+        return self._system_prompt
+
+    @system_prompt.setter
+    def system_prompt(self, value: str):
+        self._system_prompt = value
+        if self.messages and self.messages[0]["role"] == "system":
+            self.messages[0]["content"] = value
+        elif not self.messages:
+            self.messages = [{"role": "system", "content": value}]
+
     def _reset(self):
         """Reset conversation back to system prompt."""
-        self.messages = [{"role": "system", "content": self.system_prompt}]
+        self.messages = [{"role": "system", "content": self._system_prompt}]
 
     def add_user_message(self, text: str):
         """Add user spoken input message."""
