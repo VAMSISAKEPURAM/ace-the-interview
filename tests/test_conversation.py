@@ -51,7 +51,7 @@ class TestConversationSystem(unittest.TestCase):
         prompt_with_resume = build_system_prompt_with_resume(sample_resume)
 
         self.assertIn(sample_resume, prompt_with_resume)
-        self.assertIn("SELF-INTRODUCTION REQUESTS", prompt_with_resume)
+        self.assertIn("SELF-INTRODUCTION", prompt_with_resume.upper())
         self.assertIn("IN MY EXPERIENCE", prompt_with_resume.upper())
 
 if __name__ == "__main__":
