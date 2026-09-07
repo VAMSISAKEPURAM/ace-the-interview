@@ -95,12 +95,16 @@
                 <div class="card voice-card">
                     <div class="visualizer-container">
                         <canvas id="audioVisualizer" width="300" height="100"></canvas>
-                        <div class="mic-status-label" id="micStatusLabel">Tap microphone to speak</div>
+                        <div class="mic-status-label" id="micStatusLabel">Live Chat Active · Listening...</div>
+                        <div class="listening-mode-badge" id="listeningBadge">
+                            <span class="pulse-dot"></span>
+                            <span id="listeningBadgeText">Live Chat Active (Listening)</span>
+                        </div>
                     </div>
 
                     <!-- Record Button -->
                     <div class="mic-button-wrapper">
-                        <button id="micBtn" class="mic-button" aria-label="Start Voice Recording">
+                        <button id="micBtn" class="mic-button" aria-label="Toggle Voice Listening">
                             <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
                                 <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
@@ -115,6 +119,30 @@
                         <span id="recordingTimer">00:00</span>
                     </div>
 
+                    <!-- Pending Last Question Preview -->
+                    <div class="pending-question-card" id="pendingQuestionCard">
+                        <div class="pending-question-header">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="16" x2="12" y2="12"></line>
+                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                            </svg>
+                            <span>Last Asked Question</span>
+                        </div>
+                        <p class="pending-question-text" id="pendingQuestionText">No question asked yet. Speak or type below.</p>
+                    </div>
+
+                    <!-- Generate Answer Button -->
+                    <button id="generateBtn" class="generate-button" disabled title="Generate Candidate Answer for the last question (Ctrl+Enter)">
+                        <div class="generate-btn-content">
+                            <svg class="spark-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                            </svg>
+                            <span id="generateBtnText">Generate Answer</span>
+                        </div>
+                        <span class="btn-subtext">Answers the last question asked (Ctrl+Enter)</span>
+                    </button>
+
                     <!-- Hidden Audio Player for Responses -->
                     <audio id="audioPlayer" class="hidden-player" controls autoplay></audio>
                 </div>
@@ -122,12 +150,18 @@
                 <!-- Text Fallback Card -->
                 <div class="card text-input-card">
                     <form id="textForm" class="text-form">
-                        <input type="text" id="textInput" placeholder="Type a message instead..." autocomplete="off" />
-                        <button type="submit" id="sendBtn" class="send-button">
+                        <input type="text" id="textInput" placeholder="Type an interview question..." autocomplete="off" />
+                        <button type="submit" id="sendBtn" class="send-button" title="Add Question to Chat">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <line x1="22" y1="2" x2="11" y2="13"></line>
                                 <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                             </svg>
+                        </button>
+                        <button type="button" id="inlineGenBtn" class="inline-gen-btn" disabled title="Generate answer now (Ctrl+Enter)">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                            </svg>
+                            <span>Generate</span>
                         </button>
                     </form>
                 </div>

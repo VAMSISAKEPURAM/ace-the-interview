@@ -15,6 +15,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const canvasCtx = canvas.getContext('2d');
     const statusText = document.getElementById('statusText');
 
+    // Live Chat & Generate Elements
+    const listeningBadge = document.getElementById('listeningBadge');
+    const listeningBadgeText = document.getElementById('listeningBadgeText');
+    const pendingQuestionCard = document.getElementById('pendingQuestionCard');
+    const pendingQuestionText = document.getElementById('pendingQuestionText');
+    const generateBtn = document.getElementById('generateBtn');
+    const generateBtnText = document.getElementById('generateBtnText');
+    const inlineGenBtn = document.getElementById('inlineGenBtn');
+
+    let lastUserQuestion = '';
+    let conversationTurns = [];
+    let isContinuousListening = true;
+    let isGenerating = false;
+
     // Resume Context Elements & State
     const resumeBtn = document.getElementById('resumeBtn');
     const resumeDot = document.getElementById('resumeDot');
@@ -260,42 +274,145 @@ VOICE & TEXT-TO-SPEECH FORMATTING:
     // Check Speech Recognition Availability
     if (SpeechRecognition) {
         recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = false;
+        recognition.continuous = true;
+        recognition.interimResults = true;
         recognition.lang = 'en-US';
 
         recognition.onstart = () => {
             isListening = true;
-            micBtn.classList.add('recording');
-            micStatusLabel.textContent = 'Listening... Speak into microphone';
-            micStatusLabel.style.color = '#ec4899';
+            updateListeningUI(true);
             drawActiveWaveform();
         };
 
-        recognition.onresult = async (event) => {
-            const userSpeech = event.results[0][0].transcript;
-            console.log('Recognized User Speech:', userSpeech);
-            stopListening();
+        recognition.onresult = (event) => {
+            let finalTranscript = '';
+            let interimTranscript = '';
 
-            if (userSpeech.trim()) {
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                const transcript = event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    finalTranscript += transcript;
+                } else {
+                    interimTranscript += transcript;
+                }
+            }
+
+            if (interimTranscript.trim()) {
+                micStatusLabel.textContent = `Hearing: "${interimTranscript.trim()}"`;
+                micStatusLabel.style.color = '#c084fc';
+            }
+
+            if (finalTranscript.trim()) {
+                const userSpeech = finalTranscript.trim();
+                console.log('Recognized user speech:', userSpeech);
                 appendMessage('User', userSpeech, true);
-                await processWithGroq(userSpeech);
-            } else {
-                micStatusLabel.textContent = "Didn't catch that. Tap microphone to try again.";
+                conversationTurns.push({ role: 'user', content: userSpeech });
+                setPendingQuestion(userSpeech);
+                micStatusLabel.textContent = 'Question captured! Click "Generate Answer" (or Ctrl+Enter)';
+                micStatusLabel.style.color = '#10b981';
             }
         };
 
         recognition.onerror = (event) => {
-            console.error('Speech Recognition Error:', event.error);
-            stopListening();
-            micStatusLabel.textContent = `Mic error (${event.error}). Tap to retry.`;
+            console.warn('Speech Recognition notice:', event.error);
+            if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                isContinuousListening = false;
+                updateListeningUI(false);
+                micStatusLabel.textContent = 'Microphone permission blocked. Please enable mic in browser settings.';
+            }
         };
 
         recognition.onend = () => {
-            stopListening();
+            isListening = false;
+            // Keep continuous chat listening active as long as the app is open
+            if (isContinuousListening) {
+                setTimeout(() => {
+                    if (isContinuousListening && !isListening) {
+                        try {
+                            recognition.start();
+                        } catch (e) {
+                            // Handled if already active
+                        }
+                    }
+                }, 300);
+            } else {
+                updateListeningUI(false);
+            }
         };
+
+        // Auto-start continuous listening on load (or upon first click if browser requires user gesture)
+        try {
+            recognition.start();
+        } catch (e) {
+            console.log('Continuous listening ready - will start on first user interaction');
+        }
+
+        const startOnFirstGesture = () => {
+            if (isContinuousListening && !isListening) {
+                try {
+                    recognition.start();
+                } catch (e) {}
+            }
+        };
+        document.addEventListener('click', startOnFirstGesture, { once: true });
     } else {
         micStatusLabel.textContent = 'Web Speech API not supported in this browser. Use Chrome/Edge.';
+        if (listeningBadge) listeningBadge.style.display = 'none';
+    }
+
+    function updateListeningUI(active) {
+        if (active) {
+            micBtn.classList.add('recording');
+            if (listeningBadge) {
+                listeningBadge.classList.remove('paused');
+                if (listeningBadgeText) listeningBadgeText.textContent = 'Live Chat Active (Listening)';
+            }
+            micStatusLabel.textContent = 'Live Chat Active · Listening for questions...';
+            micStatusLabel.style.color = '#10b981';
+        } else {
+            micBtn.classList.remove('recording');
+            if (listeningBadge) {
+                listeningBadge.classList.add('paused');
+                if (listeningBadgeText) listeningBadgeText.textContent = 'Listening Paused · Tap Mic';
+            }
+            micStatusLabel.textContent = 'Listening paused. Tap mic to resume live chat.';
+            micStatusLabel.style.color = '#9ca3af';
+            drawIdleWaveform();
+        }
+    }
+
+    function setPendingQuestion(text) {
+        lastUserQuestion = text.trim();
+        if (pendingQuestionText) {
+            pendingQuestionText.textContent = `"${lastUserQuestion}"`;
+        }
+        if (pendingQuestionCard) {
+            pendingQuestionCard.classList.add('has-question');
+        }
+        if (generateBtn) {
+            generateBtn.disabled = false;
+            generateBtn.title = `Generate answer for last question: "${lastUserQuestion.slice(0, 35)}..." (Ctrl+Enter)`;
+        }
+        if (inlineGenBtn) {
+            inlineGenBtn.disabled = false;
+        }
+    }
+
+    function clearPendingQuestion() {
+        lastUserQuestion = '';
+        if (pendingQuestionText) {
+            pendingQuestionText.textContent = 'No question asked yet. Speak or type below.';
+        }
+        if (pendingQuestionCard) {
+            pendingQuestionCard.classList.remove('has-question');
+        }
+        if (generateBtn) {
+            generateBtn.disabled = true;
+            generateBtn.title = 'Ask a question first (Ctrl+Enter)';
+        }
+        if (inlineGenBtn) {
+            inlineGenBtn.disabled = true;
+        }
     }
 
     // Controls
@@ -339,16 +456,28 @@ VOICE & TEXT-TO-SPEECH FORMATTING:
     micBtn.addEventListener('click', toggleListening);
     textForm.addEventListener('submit', handleTextSubmit);
     clearBtn.addEventListener('click', handleResetSession);
+    if (generateBtn) generateBtn.addEventListener('click', handleGenerateClick);
+    if (inlineGenBtn) inlineGenBtn.addEventListener('click', handleGenerateClick);
+
+    // Global keyboard shortcut: Ctrl + Enter / Cmd + Enter generates answer
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            handleGenerateClick();
+        }
+    });
 
     function toggleListening() {
         if (!recognition) {
             alert('Speech Recognition is not supported in your browser. Please use Google Chrome or Microsoft Edge.');
             return;
         }
-        if (isListening) {
-            recognition.stop();
-            stopListening();
+        if (isContinuousListening) {
+            isContinuousListening = false;
+            try { recognition.stop(); } catch(e) {}
+            updateListeningUI(false);
         } else {
+            isContinuousListening = true;
             try {
                 recognition.start();
             } catch (e) {
@@ -357,21 +486,52 @@ VOICE & TEXT-TO-SPEECH FORMATTING:
         }
     }
 
-    function stopListening() {
-        isListening = false;
-        micBtn.classList.remove('recording');
-        micStatusLabel.textContent = 'Tap microphone to speak';
-        micStatusLabel.style.color = '#9ca3af';
-        drawIdleWaveform();
+    /**
+     * Handler for the Generate Button
+     * Configures the last question asked in chat and invokes LLM
+     */
+    async function handleGenerateClick() {
+        if (isGenerating) return;
+        if (!lastUserQuestion) {
+            alert('Please ask or type an interview question first!');
+            return;
+        }
+
+        isGenerating = true;
+        if (generateBtn) {
+            generateBtn.classList.add('is-generating');
+            generateBtn.disabled = true;
+        }
+        if (inlineGenBtn) {
+            inlineGenBtn.disabled = true;
+        }
+        if (generateBtnText) {
+            generateBtnText.textContent = 'Candidate Thinking...';
+        }
+        micStatusLabel.textContent = 'Groq AI generating candidate response...';
+        statusText.textContent = 'Querying Groq LLaMA 3.3...';
+
+        try {
+            await processWithGroq(lastUserQuestion);
+        } finally {
+            isGenerating = false;
+            if (generateBtn) {
+                generateBtn.classList.remove('is-generating');
+                generateBtn.disabled = !lastUserQuestion;
+            }
+            if (inlineGenBtn) {
+                inlineGenBtn.disabled = !lastUserQuestion;
+            }
+            if (generateBtnText) {
+                generateBtnText.textContent = 'Generate Answer';
+            }
+        }
     }
 
     /**
-     * Query Groq Cloud LLaMA 3.3 API
+     * Query Groq Cloud LLaMA 3.3 API with Candidate Persona & Conversation History
      */
     async function processWithGroq(userPrompt) {
-        micStatusLabel.textContent = 'Groq AI Thinking...';
-        statusText.textContent = 'Querying Groq LLaMA 3.3...';
-
         // Retrieve Groq API key securely from localStorage or prompt user
         let apiKey = localStorage.getItem('GROQ_API_KEY') || '';
         if (!apiKey) {
@@ -384,6 +544,25 @@ VOICE & TEXT-TO-SPEECH FORMATTING:
             }
         }
 
+        // Build conversation messages array including past turns for contextual answers
+        const messages = [
+            {
+                role: 'system',
+                content: getSystemPrompt()
+            }
+        ];
+
+        // Include recent conversation turns (up to 8 turns) for context
+        const recentTurns = conversationTurns.slice(-8);
+        for (const turn of recentTurns) {
+            messages.push({ role: turn.role, content: turn.content });
+        }
+
+        // Ensure user prompt is present as latest user message
+        if (messages.length === 1 || messages[messages.length - 1].role !== 'user') {
+            messages.push({ role: 'user', content: userPrompt });
+        }
+
         try {
             const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                 method: 'POST',
@@ -393,15 +572,9 @@ VOICE & TEXT-TO-SPEECH FORMATTING:
                 },
                 body: JSON.stringify({
                     model: 'llama-3.3-70b-versatile',
-                    messages: [
-                        {
-                            role: 'system',
-                            content: getSystemPrompt()
-                        },
-                        { role: 'user', content: userPrompt }
-                    ],
+                    messages: messages,
                     temperature: 0.7,
-                    max_tokens: 300
+                    max_tokens: 350
                 })
             });
 
@@ -414,11 +587,12 @@ VOICE & TEXT-TO-SPEECH FORMATTING:
             const aiText = data.choices[0].message.content.replace(/\*/g, '').replace(/#/g, '').trim();
 
             appendMessage('Assistant', aiText, false);
-            // Get the stop button from the just-appended message
+            conversationTurns.push({ role: 'assistant', content: aiText });
+
             const lastMsg = chatHistory.lastElementChild;
             speakResponse(aiText, lastMsg ? lastMsg._stopBtn : null);
 
-            micStatusLabel.textContent = 'Tap microphone to speak';
+            micStatusLabel.textContent = 'Live Chat Active · Listening for next question...';
             statusText.textContent = 'Groq LLaMA 3.3 Connected';
 
         } catch (err) {
@@ -427,22 +601,24 @@ VOICE & TEXT-TO-SPEECH FORMATTING:
             appendMessage('Assistant', fallbackMsg, false);
             const lastErrMsg = chatHistory.lastElementChild;
             speakResponse(fallbackMsg, lastErrMsg ? lastErrMsg._stopBtn : null);
-            micStatusLabel.textContent = 'Tap microphone to speak';
+            micStatusLabel.textContent = 'Live Chat Active · Listening...';
             statusText.textContent = 'API Error';
         }
     }
 
     /**
-     * Text Input Fallback
+     * Text Input Form Handler - Adds user question to chat & prepares for Generate
      */
-    async function handleTextSubmit(e) {
+    function handleTextSubmit(e) {
         e.preventDefault();
         const text = textInput.value.trim();
         if (!text) return;
 
         appendMessage('User', text, true);
+        conversationTurns.push({ role: 'user', content: text });
+        setPendingQuestion(text);
         textInput.value = '';
-        await processWithGroq(text);
+        micStatusLabel.textContent = 'Question added! Click "Generate Answer" (or Ctrl+Enter).';
     }
 
     /**
@@ -576,11 +752,13 @@ VOICE & TEXT-TO-SPEECH FORMATTING:
                 <div class="avatar">🤖</div>
                 <div class="message-content">
                     <div class="sender-name">Voice Assistant</div>
-                    <p>Conversation reset. I am ready for your next question!</p>
+                    <p>Conversation reset. Live chat is active and ready for your next question!</p>
                 </div>
             </div>
         `;
-        micStatusLabel.textContent = 'Tap microphone to speak';
+        conversationTurns = [];
+        clearPendingQuestion();
+        micStatusLabel.textContent = 'Live Chat Active · Speak or type a question';
     }
 
     /**
