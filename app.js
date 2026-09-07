@@ -14,6 +14,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('audioVisualizer');
     const canvasCtx = canvas.getContext('2d');
     const statusText = document.getElementById('statusText');
+    const mainStatusDot = document.getElementById('mainStatusDot');
+
+    // Groq API Key Elements & Management
+    const apiKeyBtn = document.getElementById('apiKeyBtn');
+    const apiKeyDot = document.getElementById('apiKeyDot');
+    const apiKeyModal = document.getElementById('apiKeyModal');
+    const closeApiKeyModalBtn = document.getElementById('closeApiKeyModalBtn');
+    const groqApiKeyInput = document.getElementById('groqApiKeyInput');
+    const toggleApiKeyVisibilityBtn = document.getElementById('toggleApiKeyVisibilityBtn');
+    const apiKeyAlertBox = document.getElementById('apiKeyAlertBox');
+    const apiKeyStatusBox = document.getElementById('apiKeyStatusBox');
+    const apiKeyStatusDetail = document.getElementById('apiKeyStatusDetail');
+    const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
+    const resetApiKeyBtn = document.getElementById('resetApiKeyBtn');
 
     // Live Chat & Generate Elements
     const listeningBadge = document.getElementById('listeningBadge');
@@ -45,6 +59,136 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let resumeText = localStorage.getItem('ace_resume_text') || '';
     let resumeActive = localStorage.getItem('ace_resume_active') !== 'false';
+
+    // Helper functions for Groq API Key
+    function getStoredApiKey() {
+        return (localStorage.getItem('GROQ_API_KEY') || '').trim();
+    }
+
+    function maskApiKey(key) {
+        if (!key) return 'None';
+        if (key.length <= 8) return '••••••••';
+        return key.substring(0, 4) + '••••••••' + key.substring(key.length - 4);
+    }
+
+    function updateApiKeyUI() {
+        const key = getStoredApiKey();
+        if (key) {
+            if (apiKeyDot) apiKeyDot.className = 'status-dot green';
+            if (apiKeyBtn) apiKeyBtn.title = 'Groq API Key configured (' + maskApiKey(key) + ') - Click to view/reset';
+            if (apiKeyStatusDetail) apiKeyStatusDetail.innerHTML = `✅ <strong>Key Configured:</strong> <code>${maskApiKey(key)}</code>`;
+            if (apiKeyStatusBox) {
+                apiKeyStatusBox.style.color = '#10b981';
+                apiKeyStatusBox.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                apiKeyStatusBox.style.background = 'rgba(16, 185, 129, 0.08)';
+            }
+            if (mainStatusDot) mainStatusDot.className = 'status-dot green';
+            if (statusText && statusText.textContent.includes('Key Required')) {
+                statusText.textContent = 'Groq LLaMA 3.3 Ready';
+            }
+        } else {
+            if (apiKeyDot) apiKeyDot.className = 'status-dot red';
+            if (apiKeyBtn) apiKeyBtn.title = 'Groq API Key Missing - Click to configure';
+            if (apiKeyStatusDetail) apiKeyStatusDetail.innerHTML = `⚠️ <strong style="color:#ef4444;">Not Configured:</strong> Groq API key is missing. AI response generation will fail.`;
+            if (apiKeyStatusBox) {
+                apiKeyStatusBox.style.color = '#f87171';
+                apiKeyStatusBox.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                apiKeyStatusBox.style.background = 'rgba(239, 68, 68, 0.08)';
+            }
+            if (mainStatusDot) mainStatusDot.className = 'status-dot yellow';
+            if (statusText && statusText.textContent.includes('Connected')) {
+                statusText.textContent = 'Groq Key Required';
+            }
+        }
+    }
+
+    function showApiKeyAlert(message, type = 'info') {
+        if (!apiKeyAlertBox) return;
+        apiKeyAlertBox.textContent = message;
+        apiKeyAlertBox.className = `api-alert-box ${type}`;
+        apiKeyAlertBox.classList.remove('hidden');
+    }
+
+    function hideApiKeyAlert() {
+        if (!apiKeyAlertBox) return;
+        apiKeyAlertBox.classList.add('hidden');
+    }
+
+    function openApiKeyModal(alertMsg = '', alertType = 'info') {
+        if (!apiKeyModal) return;
+        const key = getStoredApiKey();
+        if (groqApiKeyInput) groqApiKeyInput.value = key;
+        if (alertMsg) {
+            showApiKeyAlert(alertMsg, alertType);
+        } else {
+            hideApiKeyAlert();
+        }
+        updateApiKeyUI();
+        apiKeyModal.classList.remove('hidden');
+        if (groqApiKeyInput) {
+            setTimeout(() => groqApiKeyInput.focus(), 60);
+        }
+    }
+
+    function closeApiKeyModal() {
+        if (!apiKeyModal) return;
+        apiKeyModal.classList.add('hidden');
+        hideApiKeyAlert();
+    }
+
+    // Initialize API Key UI
+    updateApiKeyUI();
+
+    // API Key Modal Listeners
+    if (apiKeyBtn) {
+        apiKeyBtn.addEventListener('click', () => openApiKeyModal());
+    }
+    if (closeApiKeyModalBtn) {
+        closeApiKeyModalBtn.addEventListener('click', closeApiKeyModal);
+    }
+    if (apiKeyModal) {
+        apiKeyModal.addEventListener('click', (e) => {
+            if (e.target === apiKeyModal) closeApiKeyModal();
+        });
+    }
+    if (toggleApiKeyVisibilityBtn && groqApiKeyInput) {
+        toggleApiKeyVisibilityBtn.addEventListener('click', () => {
+            if (groqApiKeyInput.type === 'password') {
+                groqApiKeyInput.type = 'text';
+                toggleApiKeyVisibilityBtn.textContent = '🔒';
+            } else {
+                groqApiKeyInput.type = 'password';
+                toggleApiKeyVisibilityBtn.textContent = '👁️';
+            }
+        });
+    }
+    if (saveApiKeyBtn && groqApiKeyInput) {
+        saveApiKeyBtn.addEventListener('click', () => {
+            const val = groqApiKeyInput.value.trim();
+            if (!val) {
+                showApiKeyAlert('Please enter your Groq API key before saving.', 'error');
+                return;
+            }
+            if (!val.startsWith('gsk_')) {
+                showApiKeyAlert('Note: Groq keys typically begin with "gsk_". Key has been saved.', 'info');
+            } else {
+                showApiKeyAlert('Groq API Key saved successfully!', 'success');
+            }
+            localStorage.setItem('GROQ_API_KEY', val);
+            updateApiKeyUI();
+            setTimeout(() => {
+                closeApiKeyModal();
+            }, 800);
+        });
+    }
+    if (resetApiKeyBtn) {
+        resetApiKeyBtn.addEventListener('click', () => {
+            localStorage.removeItem('GROQ_API_KEY');
+            if (groqApiKeyInput) groqApiKeyInput.value = '';
+            updateApiKeyUI();
+            showApiKeyAlert('Groq API key has been reset and cleared from your browser storage.', 'info');
+        });
+    }
 
     // Initialize Resume UI State
     if (resumeTextArea) resumeTextArea.value = resumeText;
@@ -532,16 +676,17 @@ VOICE & TEXT-TO-SPEECH FORMATTING:
      * Query Groq Cloud LLaMA 3.3 API with Candidate Persona & Conversation History
      */
     async function processWithGroq(userPrompt) {
-        // Retrieve Groq API key securely from localStorage or prompt user
-        let apiKey = localStorage.getItem('GROQ_API_KEY') || '';
+        // Retrieve Groq API key securely from localStorage or open configuration modal
+        let apiKey = getStoredApiKey();
         if (!apiKey) {
-            apiKey = prompt('Please enter your Groq API Key (starts with gsk_):');
-            if (apiKey && apiKey.trim()) {
-                apiKey = apiKey.trim();
-                localStorage.setItem('GROQ_API_KEY', apiKey);
-            } else {
-                throw new Error('Groq API Key is required.');
-            }
+            openApiKeyModal('Please enter your Groq API Key to generate interview answers. (Get one free at console.groq.com/keys)', 'error');
+            micStatusLabel.textContent = 'Groq API Key Required · Click "API Key" in header';
+            statusText.textContent = 'API Key Required';
+            if (mainStatusDot) mainStatusDot.className = 'status-dot red';
+            
+            const reqMsg = "To start receiving AI answers, please enter your Groq API Key in the settings popup.";
+            appendMessage('Assistant', reqMsg, false);
+            throw new Error('Groq API Key is required. Please set it in the API Key settings modal.');
         }
 
         // Build conversation messages array including past turns for contextual answers
@@ -579,8 +724,29 @@ VOICE & TEXT-TO-SPEECH FORMATTING:
             });
 
             if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.error?.message || `HTTP ${response.status}`);
+                let errDetail = `HTTP ${response.status}`;
+                try {
+                    const errData = await response.json();
+                    if (errData && errData.error && errData.error.message) {
+                        errDetail = errData.error.message;
+                    }
+                } catch (_) {}
+
+                // Detect Invalid / Revoked / Unauthorized API Key
+                const isAuthError = response.status === 401 ||
+                    errDetail.toLowerCase().includes('api key') ||
+                    errDetail.toLowerCase().includes('unauthorized') ||
+                    errDetail.toLowerCase().includes('authentication');
+
+                if (isAuthError) {
+                    // Reset the invalid key immediately so user is not trapped!
+                    localStorage.removeItem('GROQ_API_KEY');
+                    updateApiKeyUI();
+                    openApiKeyModal(`Groq API Key Rejected: ${errDetail}. Stored key has been cleared. Please enter a valid API key.`, 'error');
+                    throw new Error(`Invalid Groq API Key (${errDetail}). Your stored key has been reset.`);
+                }
+
+                throw new Error(errDetail);
             }
 
             const data = await response.json();
@@ -594,15 +760,21 @@ VOICE & TEXT-TO-SPEECH FORMATTING:
 
             micStatusLabel.textContent = 'Live Chat Active · Listening for next question...';
             statusText.textContent = 'Groq LLaMA 3.3 Connected';
+            if (mainStatusDot) mainStatusDot.className = 'status-dot green';
 
         } catch (err) {
             console.error('Groq API Error:', err);
-            const fallbackMsg = "I'm having trouble processing that request right now. Please verify your Groq API Key.";
+            const isAuth = err.message.toLowerCase().includes('api key') || err.message.toLowerCase().includes('401');
+            const fallbackMsg = isAuth
+                ? "Groq API Key Error: Your key is missing or invalid. Please enter a valid key by clicking 'API Key' in the header."
+                : `I'm having trouble processing that request: ${err.message}. Please verify your Groq API Key and connection.`;
+            
             appendMessage('Assistant', fallbackMsg, false);
             const lastErrMsg = chatHistory.lastElementChild;
             speakResponse(fallbackMsg, lastErrMsg ? lastErrMsg._stopBtn : null);
-            micStatusLabel.textContent = 'Live Chat Active · Listening...';
-            statusText.textContent = 'API Error';
+            micStatusLabel.textContent = isAuth ? 'API Key Error · Click "API Key" to fix' : 'Live Chat Active · Listening...';
+            statusText.textContent = isAuth ? 'API Key Error' : 'Groq API Error';
+            if (mainStatusDot) mainStatusDot.className = 'status-dot red';
         }
     }
 

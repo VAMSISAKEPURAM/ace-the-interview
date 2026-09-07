@@ -36,6 +36,17 @@
             </div>
             
             <div class="header-right">
+                <button id="apiKeyBtn" class="resume-badge-button" title="Configure or Reset Groq API Key">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="7.5" cy="15.5" r="4.5"></circle>
+                        <path d="M10.7 12.3L19 4"></path>
+                        <path d="M15.5 7.5L18 10"></path>
+                        <path d="M18 5L20 7"></path>
+                    </svg>
+                    <span>API Key</span>
+                    <span class="status-dot grey" id="apiKeyDot"></span>
+                </button>
+
                 <button id="resumeBtn" class="resume-badge-button" title="Manage Candidate Resume Context">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -48,7 +59,7 @@
                 </button>
 
                 <div class="status-badge" id="statusBadge">
-                    <span class="status-dot green"></span>
+                    <span class="status-dot green" id="mainStatusDot"></span>
                     <span class="status-text" id="statusText">Groq LLaMA 3.3 Connected</span>
                 </div>
             </div>
@@ -172,6 +183,53 @@
         <footer class="app-footer">
             <p>Powered by <strong>Groq Cloud API</strong> (LLaMA 3.3) &amp; <strong>Hugging Face Spaces</strong> (Whisper STT / MMS TTS)</p>
         </footer>
+    </div>
+
+    <!-- Groq API Key Modal -->
+    <div id="apiKeyModal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="7.5" cy="15.5" r="4.5"></circle>
+                        <path d="M10.7 12.3L19 4"></path>
+                        <path d="M15.5 7.5L18 10"></path>
+                        <path d="M18 5L20 7"></path>
+                    </svg>
+                    <h3>Groq API Key Settings</h3>
+                </div>
+                <button id="closeApiKeyModalBtn" class="close-btn" aria-label="Close modal">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <p class="modal-description">
+                    Ace The Interview runs on Groq's high-speed LLaMA 3.3 70B model. Enter your Groq API key below to enable intelligent candidate voice answers. Your key is stored locally in your browser only.
+                </p>
+
+                <div id="apiKeyAlertBox" class="api-alert-box hidden"></div>
+
+                <div class="api-key-input-group">
+                    <label for="groqApiKeyInput">Groq API Key (starts with <code>gsk_</code>):</label>
+                    <div class="input-with-action">
+                        <input type="password" id="groqApiKeyInput" placeholder="gsk_..." autocomplete="off" spellcheck="false" />
+                        <button type="button" id="toggleApiKeyVisibilityBtn" class="icon-btn" title="Show/Hide API Key">👁️</button>
+                    </div>
+                    <span class="input-hint">
+                        Don't have a key? Create one for free in 30 seconds at 
+                        <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">console.groq.com/keys</a>
+                    </span>
+                </div>
+
+                <div class="resume-status-box" id="apiKeyStatusBox">
+                    <span id="apiKeyStatusDetail">Checking Groq API key status...</span>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button id="resetApiKeyBtn" class="btn-secondary" title="Remove key from browser storage">Reset / Clear Key</button>
+                <button id="saveApiKeyBtn" class="btn-primary">Save API Key</button>
+            </div>
+        </div>
     </div>
 
     <!-- Resume Context Modal -->
