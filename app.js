@@ -23,11 +23,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeApiKeyModalBtn = document.getElementById('closeApiKeyModalBtn');
     const groqApiKeyInput = document.getElementById('groqApiKeyInput');
     const toggleApiKeyVisibilityBtn = document.getElementById('toggleApiKeyVisibilityBtn');
+    const groqModelSelect = document.getElementById('groqModelSelect');
     const apiKeyAlertBox = document.getElementById('apiKeyAlertBox');
     const apiKeyStatusBox = document.getElementById('apiKeyStatusBox');
     const apiKeyStatusDetail = document.getElementById('apiKeyStatusDetail');
     const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
     const resetApiKeyBtn = document.getElementById('resetApiKeyBtn');
+
+    const FALLBACK_MODELS = [
+        'llama-3.1-8b-instant',
+        'llama-3.3-70b-versatile',
+        'llama-3.3-70b-specdec',
+        'llama3-8b-8192'
+    ];
 
     // Live Chat & Generate Elements
     const listeningBadge = document.getElementById('listeningBadge');
@@ -73,18 +81,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateApiKeyUI() {
         const key = getStoredApiKey();
+        const currentModel = localStorage.getItem('GROQ_MODEL') || 'llama-3.1-8b-instant';
         if (key) {
             if (apiKeyDot) apiKeyDot.className = 'status-dot green';
-            if (apiKeyBtn) apiKeyBtn.title = 'Groq API Key configured (' + maskApiKey(key) + ') - Click to view/reset';
-            if (apiKeyStatusDetail) apiKeyStatusDetail.innerHTML = `✅ <strong>Key Configured:</strong> <code>${maskApiKey(key)}</code>`;
+            if (apiKeyBtn) apiKeyBtn.title = 'Groq API Key configured (' + maskApiKey(key) + ') - Model: ' + currentModel;
+            if (apiKeyStatusDetail) apiKeyStatusDetail.innerHTML = `✅ <strong>Key Configured:</strong> <code>${maskApiKey(key)}</code> &middot; Model: <code>${currentModel}</code>`;
             if (apiKeyStatusBox) {
                 apiKeyStatusBox.style.color = '#10b981';
                 apiKeyStatusBox.style.borderColor = 'rgba(16, 185, 129, 0.3)';
                 apiKeyStatusBox.style.background = 'rgba(16, 185, 129, 0.08)';
             }
             if (mainStatusDot) mainStatusDot.className = 'status-dot green';
-            if (statusText && statusText.textContent.includes('Key Required')) {
-                statusText.textContent = 'Groq LLaMA 3.3 Ready';
+            if (statusText) {
+                statusText.textContent = `Groq LLaMA Ready (${currentModel})`;
             }
         } else {
             if (apiKeyDot) apiKeyDot.className = 'status-dot red';
@@ -118,6 +127,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!apiKeyModal) return;
         const key = getStoredApiKey();
         if (groqApiKeyInput) groqApiKeyInput.value = key;
+        if (groqModelSelect) {
+            groqModelSelect.value = localStorage.getItem('GROQ_MODEL') || 'llama-3.1-8b-instant';
+        }
         if (alertMsg) {
             showApiKeyAlert(alertMsg, alertType);
         } else {
@@ -175,6 +187,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 showApiKeyAlert('Groq API Key saved successfully!', 'success');
             }
             localStorage.setItem('GROQ_API_KEY', val);
+            if (groqModelSelect) {
+                localStorage.setItem('GROQ_MODEL', groqModelSelect.value);
+            }
             updateApiKeyUI();
             setTimeout(() => {
                 closeApiKeyModal();
@@ -673,109 +688,138 @@ VOICE & TEXT-TO-SPEECH FORMATTING:
     }
 
     /**
-     * Query Groq Cloud LLaMA 3.3 API with Candidate Persona & Conversation History
+     * Query Groq Cloud API with Candidate Persona & Conversation History.
+     * Reads the model from localStorage (set in API Key modal).
+     * Auto-falls back through FALLBACK_MODELS if the chosen model is unavailable.
      */
     async function processWithGroq(userPrompt) {
         // Retrieve Groq API key securely from localStorage or open configuration modal
-        let apiKey = getStoredApiKey();
+        const apiKey = getStoredApiKey();
         if (!apiKey) {
             openApiKeyModal('Please enter your Groq API Key to generate interview answers. (Get one free at console.groq.com/keys)', 'error');
             micStatusLabel.textContent = 'Groq API Key Required · Click "API Key" in header';
             statusText.textContent = 'API Key Required';
             if (mainStatusDot) mainStatusDot.className = 'status-dot red';
-            
-            const reqMsg = "To start receiving AI answers, please enter your Groq API Key in the settings popup.";
-            appendMessage('Assistant', reqMsg, false);
-            throw new Error('Groq API Key is required. Please set it in the API Key settings modal.');
+            appendMessage('Assistant', 'To start receiving AI answers, please enter your Groq API Key in the settings popup.', false);
+            throw new Error('Groq API Key is required.');
         }
 
-        // Build conversation messages array including past turns for contextual answers
-        const messages = [
-            {
-                role: 'system',
-                content: getSystemPrompt()
-            }
+        // Determine model: use stored preference, else first fallback
+        const preferredModel = localStorage.getItem('GROQ_MODEL') || FALLBACK_MODELS[0];
+
+        // Build ordered list to try: preferred model first, then the rest
+        const modelsToTry = [
+            preferredModel,
+            ...FALLBACK_MODELS.filter(m => m !== preferredModel)
         ];
 
-        // Include recent conversation turns (up to 8 turns) for context
+        // Build conversation messages array including past turns for contextual answers
+        const messages = [{ role: 'system', content: getSystemPrompt() }];
         const recentTurns = conversationTurns.slice(-8);
         for (const turn of recentTurns) {
             messages.push({ role: turn.role, content: turn.content });
         }
-
-        // Ensure user prompt is present as latest user message
         if (messages.length === 1 || messages[messages.length - 1].role !== 'user') {
             messages.push({ role: 'user', content: userPrompt });
         }
 
-        try {
-            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: 'llama-3.3-70b-versatile',
-                    messages: messages,
-                    temperature: 0.7,
-                    max_tokens: 350
-                })
-            });
+        let lastErr = null;
 
-            if (!response.ok) {
-                let errDetail = `HTTP ${response.status}`;
-                try {
-                    const errData = await response.json();
-                    if (errData && errData.error && errData.error.message) {
-                        errDetail = errData.error.message;
+        for (const model of modelsToTry) {
+            try {
+                statusText.textContent = `Querying ${model}...`;
+
+                const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 350 })
+                });
+
+                if (!response.ok) {
+                    let errDetail = `HTTP ${response.status}`;
+                    try {
+                        const errData = await response.json();
+                        if (errData && errData.error && errData.error.message) errDetail = errData.error.message;
+                    } catch (_) {}
+
+                    // Detect Invalid / Revoked / Unauthorized API Key — stop immediately
+                    const isAuthError = response.status === 401 ||
+                        errDetail.toLowerCase().includes('api key') ||
+                        errDetail.toLowerCase().includes('unauthorized') ||
+                        errDetail.toLowerCase().includes('authentication');
+
+                    if (isAuthError) {
+                        localStorage.removeItem('GROQ_API_KEY');
+                        updateApiKeyUI();
+                        openApiKeyModal(`Groq API Key rejected: ${errDetail}. Key cleared. Please enter a valid key.`, 'error');
+                        throw new Error(`Invalid Groq API Key: ${errDetail}`);
                     }
-                } catch (_) {}
 
-                // Detect Invalid / Revoked / Unauthorized API Key
-                const isAuthError = response.status === 401 ||
-                    errDetail.toLowerCase().includes('api key') ||
-                    errDetail.toLowerCase().includes('unauthorized') ||
-                    errDetail.toLowerCase().includes('authentication');
+                    // Model not found / no access — try next model in fallback list
+                    const isModelError = response.status === 404 ||
+                        errDetail.toLowerCase().includes('does not exist') ||
+                        errDetail.toLowerCase().includes('no access') ||
+                        errDetail.toLowerCase().includes('model');
 
-                if (isAuthError) {
-                    // Reset the invalid key immediately so user is not trapped!
-                    localStorage.removeItem('GROQ_API_KEY');
-                    updateApiKeyUI();
-                    openApiKeyModal(`Groq API Key Rejected: ${errDetail}. Stored key has been cleared. Please enter a valid API key.`, 'error');
-                    throw new Error(`Invalid Groq API Key (${errDetail}). Your stored key has been reset.`);
+                    if (isModelError) {
+                        console.warn(`Model "${model}" unavailable: ${errDetail}. Trying next model...`);
+                        lastErr = new Error(errDetail);
+                        continue; // try next model
+                    }
+
+                    throw new Error(errDetail);
                 }
 
-                throw new Error(errDetail);
+                const data = await response.json();
+                const aiText = data.choices[0].message.content.replace(/\*/g, '').replace(/#/g, '').trim();
+
+                appendMessage('Assistant', aiText, false);
+                conversationTurns.push({ role: 'assistant', content: aiText });
+
+                const lastMsg = chatHistory.lastElementChild;
+                speakResponse(aiText, lastMsg ? lastMsg._stopBtn : null);
+
+                // If we fell back to a different model, save it automatically
+                if (model !== preferredModel) {
+                    localStorage.setItem('GROQ_MODEL', model);
+                    updateApiKeyUI();
+                    console.info(`Auto-switched to model: ${model}`);
+                }
+
+                micStatusLabel.textContent = 'Live Chat Active · Listening for next question...';
+                statusText.textContent = `Groq ${model} Connected`;
+                if (mainStatusDot) mainStatusDot.className = 'status-dot green';
+                return; // success — exit loop
+
+            } catch (err) {
+                // Only re-throw immediately for auth errors; for other errors continue
+                if (err.message.toLowerCase().includes('invalid groq api key') ||
+                    err.message.toLowerCase().includes('unauthorized') ||
+                    err.message.toLowerCase().includes('api key')) {
+                    // Auth error: surface to user immediately
+                    const isAuth = true;
+                    appendMessage('Assistant', "Groq API Key Error: Your key is missing or invalid. Please click 'API Key' in the header to fix it.", false);
+                    micStatusLabel.textContent = 'API Key Error · Click "API Key" to fix';
+                    statusText.textContent = 'API Key Error';
+                    if (mainStatusDot) mainStatusDot.className = 'status-dot red';
+                    return;
+                }
+                lastErr = err;
             }
-
-            const data = await response.json();
-            const aiText = data.choices[0].message.content.replace(/\*/g, '').replace(/#/g, '').trim();
-
-            appendMessage('Assistant', aiText, false);
-            conversationTurns.push({ role: 'assistant', content: aiText });
-
-            const lastMsg = chatHistory.lastElementChild;
-            speakResponse(aiText, lastMsg ? lastMsg._stopBtn : null);
-
-            micStatusLabel.textContent = 'Live Chat Active · Listening for next question...';
-            statusText.textContent = 'Groq LLaMA 3.3 Connected';
-            if (mainStatusDot) mainStatusDot.className = 'status-dot green';
-
-        } catch (err) {
-            console.error('Groq API Error:', err);
-            const isAuth = err.message.toLowerCase().includes('api key') || err.message.toLowerCase().includes('401');
-            const fallbackMsg = isAuth
-                ? "Groq API Key Error: Your key is missing or invalid. Please enter a valid key by clicking 'API Key' in the header."
-                : `I'm having trouble processing that request: ${err.message}. Please verify your Groq API Key and connection.`;
-            
-            appendMessage('Assistant', fallbackMsg, false);
-            const lastErrMsg = chatHistory.lastElementChild;
-            speakResponse(fallbackMsg, lastErrMsg ? lastErrMsg._stopBtn : null);
-            micStatusLabel.textContent = isAuth ? 'API Key Error · Click "API Key" to fix' : 'Live Chat Active · Listening...';
-            statusText.textContent = isAuth ? 'API Key Error' : 'Groq API Error';
-            if (mainStatusDot) mainStatusDot.className = 'status-dot red';
         }
+
+        // All models failed
+        console.error('All Groq models failed. Last error:', lastErr);
+        const fallbackMsg = `All available Groq models are currently unavailable or inaccessible. Last error: ${lastErr ? lastErr.message : 'unknown'}. Please try again later or check your API key in settings.`;
+        appendMessage('Assistant', fallbackMsg, false);
+        const lastErrMsg = chatHistory.lastElementChild;
+        speakResponse(fallbackMsg, lastErrMsg ? lastErrMsg._stopBtn : null);
+        micStatusLabel.textContent = 'Groq Unavailable · Try again later';
+        statusText.textContent = 'All Models Unavailable';
+        if (mainStatusDot) mainStatusDot.className = 'status-dot red';
     }
 
     /**

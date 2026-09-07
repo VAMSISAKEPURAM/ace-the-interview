@@ -60,7 +60,7 @@
 
                 <div class="status-badge" id="statusBadge">
                     <span class="status-dot green" id="mainStatusDot"></span>
-                    <span class="status-text" id="statusText">Groq LLaMA 3.3 Connected</span>
+                    <span class="status-text" id="statusText">Groq LLaMA Connected</span>
                 </div>
             </div>
         </header>
@@ -194,7 +194,7 @@
 
             <div class="modal-body">
                 <p class="modal-description">
-                    Ace The Interview runs on Groq's high-speed LLaMA 3.3 70B model. Enter your Groq API key below to enable intelligent candidate voice answers. Your key is stored locally in your browser only.
+                    Ace The Interview runs on Groq's high-speed LLaMA inference engine. Enter your Groq API key below to enable intelligent candidate voice answers. Your key is stored locally in your browser only.
                 </p>
 
                 <div id="apiKeyAlertBox" class="api-alert-box hidden"></div>
@@ -209,6 +209,17 @@
                         Don't have a key? Create one for free in 30 seconds at 
                         <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">console.groq.com/keys</a>
                     </span>
+                </div>
+
+                <div class="api-key-input-group">
+                    <label for="groqModelSelect">Groq LLM Model:</label>
+                    <select id="groqModelSelect" class="styled-select">
+                        <option value="llama-3.1-8b-instant" selected>Llama 3.1 8B Instant (Recommended · Universal Access &amp; Fastest)</option>
+                        <option value="llama-3.3-70b-versatile">Llama 3.3 70B Versatile (High Capacity)</option>
+                        <option value="llama-3.3-70b-specdec">Llama 3.3 70B Speculative Decoding</option>
+                        <option value="llama3-8b-8192">Llama 3 8B (8192 Context)</option>
+                    </select>
+                    <span class="input-hint">Auto-Fallback: If the selected model is not available for your key, the app automatically switches to an available model.</span>
                 </div>
 
                 <div class="resume-status-box" id="apiKeyStatusBox">
