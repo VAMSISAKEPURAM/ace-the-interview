@@ -69,6 +69,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let isContinuousListening = true;
     let isGenerating = false;
 
+    // Tracks the active user speech bubble so new speech chunks are appended
+    // to the SAME bubble instead of creating a new one each time.
+    let currentUserBubble = null;     // DOM element of the open user message div
+    let currentUserBubbleText = null; // The <p> inside it
+    let accumulatedSpeech = '';       // Full text accumulated for the current turn
+
     // Resume Context Elements & State
     const resumeBtn = document.getElementById('resumeBtn');
     const resumeDot = document.getElementById('resumeDot');
@@ -511,11 +517,26 @@ VOICE & TEXT-TO-SPEECH CLEANLINESS:
             }
 
             if (finalTranscript.trim()) {
-                const userSpeech = finalTranscript.trim();
-                console.log('Recognized user speech:', userSpeech);
-                appendMessage('User', userSpeech, true);
-                conversationTurns.push({ role: 'user', content: userSpeech });
-                setPendingQuestion(userSpeech);
+                const chunk = finalTranscript.trim();
+                console.log('Recognized speech chunk:', chunk);
+
+                // Append chunk to the running accumulated speech for this turn
+                accumulatedSpeech = accumulatedSpeech
+                    ? accumulatedSpeech + ' ' + chunk
+                    : chunk;
+
+                if (!currentUserBubble) {
+                    // First chunk — create a new user bubble
+                    const { msgDiv, textPara } = createUserBubble(accumulatedSpeech);
+                    currentUserBubble = msgDiv;
+                    currentUserBubbleText = textPara;
+                } else {
+                    // Subsequent chunks — update the existing bubble text in-place
+                    currentUserBubbleText.textContent = accumulatedSpeech;
+                    chatHistory.scrollTop = chatHistory.scrollHeight;
+                }
+
+                setPendingQuestion(accumulatedSpeech);
                 micStatusLabel.textContent = 'Question captured! Click "Generate Answer" (or Ctrl+Enter)';
                 micStatusLabel.style.color = '#10b981';
             }
@@ -559,7 +580,7 @@ VOICE & TEXT-TO-SPEECH CLEANLINESS:
             if (isContinuousListening && !isListening) {
                 try {
                     recognition.start();
-                } catch (e) {}
+                } catch (e) { }
             }
         };
         document.addEventListener('click', startOnFirstGesture, { once: true });
@@ -682,7 +703,7 @@ VOICE & TEXT-TO-SPEECH CLEANLINESS:
         }
         if (isContinuousListening) {
             isContinuousListening = false;
-            try { recognition.stop(); } catch(e) {}
+            try { recognition.stop(); } catch (e) { }
             updateListeningUI(false);
         } else {
             isContinuousListening = true;
@@ -802,7 +823,7 @@ VOICE & TEXT-TO-SPEECH CLEANLINESS:
                     try {
                         const errData = await response.json();
                         if (errData && errData.error && errData.error.message) errDetail = errData.error.message;
-                    } catch (_) {}
+                    } catch (_) { }
 
                     // Detect Invalid / Revoked / Unauthorized API Key — stop immediately
                     const isAuthError = response.status === 401 ||
@@ -835,6 +856,9 @@ VOICE & TEXT-TO-SPEECH CLEANLINESS:
                 const data = await response.json();
                 const rawAiText = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) ? data.choices[0].message.content : '';
                 const aiText = rawAiText.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/\*/g, '').replace(/#/g, '').trim();
+
+                // Commit the open user speech bubble before adding the AI response
+                finaliseUserBubble();
 
                 appendMessage('Assistant', aiText, false);
                 conversationTurns.push({ role: 'assistant', content: aiText });
@@ -884,11 +908,15 @@ VOICE & TEXT-TO-SPEECH CLEANLINESS:
 
     /**
      * Text Input Form Handler - Adds user question to chat & prepares for Generate
+     * Text submissions always start a fresh bubble.
      */
     function handleTextSubmit(e) {
         e.preventDefault();
         const text = textInput.value.trim();
         if (!text) return;
+
+        // Finalise any open speech bubble before adding the typed question
+        finaliseUserBubble();
 
         appendMessage('User', text, true);
         conversationTurns.push({ role: 'user', content: text });
@@ -952,6 +980,52 @@ VOICE & TEXT-TO-SPEECH CLEANLINESS:
     }
     function getRepeatIcon() {
         return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>';
+    }
+
+    /**
+     * Create a user speech bubble and return the DOM elements for later updates.
+     * This is used by the speech recognition path to enable in-place text updates.
+     */
+    function createUserBubble(initialText) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'message user-message';
+
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        avatar.textContent = '👤';
+
+        const content = document.createElement('div');
+        content.className = 'message-content';
+
+        const name = document.createElement('div');
+        name.className = 'sender-name';
+        name.textContent = 'You';
+
+        const textPara = document.createElement('p');
+        textPara.textContent = initialText;
+
+        content.appendChild(name);
+        content.appendChild(textPara);
+        msgDiv.appendChild(avatar);
+        msgDiv.appendChild(content);
+
+        chatHistory.appendChild(msgDiv);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+
+        return { msgDiv, textPara };
+    }
+
+    /**
+     * Finalise (commit) the current open user speech bubble.
+     * Pushes the full accumulated transcript to conversationTurns and resets tracking vars.
+     */
+    function finaliseUserBubble() {
+        if (accumulatedSpeech.trim()) {
+            conversationTurns.push({ role: 'user', content: accumulatedSpeech.trim() });
+        }
+        currentUserBubble = null;
+        currentUserBubbleText = null;
+        accumulatedSpeech = '';
     }
 
     /**
@@ -1033,6 +1107,10 @@ VOICE & TEXT-TO-SPEECH CLEANLINESS:
             </div>
         `;
         conversationTurns = [];
+        // Reset speech bubble tracking so next speech starts fresh
+        currentUserBubble = null;
+        currentUserBubbleText = null;
+        accumulatedSpeech = '';
         clearPendingQuestion();
         micStatusLabel.textContent = 'Live Chat Active · Speak or type a question';
     }
