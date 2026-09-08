@@ -31,11 +31,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const resetApiKeyBtn = document.getElementById('resetApiKeyBtn');
 
     const FALLBACK_MODELS = [
+        'openai/gpt-oss-120b',
+        'openai/gpt-oss-20b',
+        'groq/compound-mini',
+        'groq/compound',
+        'llama-3.3-70b-versatile',
+        'llama-3.1-8b-instant'
+    ];
+
+    // Automatic migration for deprecated / decommissioned models in browser storage
+    const DECOMMISSIONED_MODELS = [
         'llama-3.1-8b-instant',
         'llama-3.3-70b-versatile',
         'llama-3.3-70b-specdec',
-        'llama3-8b-8192'
+        'llama3-8b-8192',
+        'llama3-70b-8192',
+        'mixtral-8x7b-32768',
+        'gemma2-9b-it',
+        'deepseek-r1-distill-llama-70b'
     ];
+    const initialSavedModel = localStorage.getItem('GROQ_MODEL');
+    if (!initialSavedModel || DECOMMISSIONED_MODELS.includes(initialSavedModel)) {
+        localStorage.setItem('GROQ_MODEL', 'openai/gpt-oss-120b');
+    }
 
     // Live Chat & Generate Elements
     const listeningBadge = document.getElementById('listeningBadge');
@@ -81,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateApiKeyUI() {
         const key = getStoredApiKey();
-        const currentModel = localStorage.getItem('GROQ_MODEL') || 'llama-3.1-8b-instant';
+        const currentModel = localStorage.getItem('GROQ_MODEL') || 'openai/gpt-oss-120b';
         if (key) {
             if (apiKeyDot) apiKeyDot.className = 'status-dot green';
             if (apiKeyBtn) apiKeyBtn.title = 'Groq API Key configured (' + maskApiKey(key) + ') - Model: ' + currentModel;
@@ -93,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (mainStatusDot) mainStatusDot.className = 'status-dot green';
             if (statusText) {
-                statusText.textContent = `Groq LLaMA Ready (${currentModel})`;
+                statusText.textContent = `Groq AI Ready (${currentModel})`;
             }
         } else {
             if (apiKeyDot) apiKeyDot.className = 'status-dot red';
@@ -128,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const key = getStoredApiKey();
         if (groqApiKeyInput) groqApiKeyInput.value = key;
         if (groqModelSelect) {
-            groqModelSelect.value = localStorage.getItem('GROQ_MODEL') || 'llama-3.1-8b-instant';
+            groqModelSelect.value = localStorage.getItem('GROQ_MODEL') || 'openai/gpt-oss-120b';
         }
         if (alertMsg) {
             showApiKeyAlert(alertMsg, alertType);
@@ -668,7 +686,7 @@ VOICE & TEXT-TO-SPEECH FORMATTING:
             generateBtnText.textContent = 'Candidate Thinking...';
         }
         micStatusLabel.textContent = 'Groq AI generating candidate response...';
-        statusText.textContent = 'Querying Groq LLaMA 3.3...';
+        statusText.textContent = 'Querying Groq AI...';
 
         try {
             await processWithGroq(lastUserQuestion);
@@ -729,13 +747,23 @@ VOICE & TEXT-TO-SPEECH FORMATTING:
             try {
                 statusText.textContent = `Querying ${model}...`;
 
+                const requestPayload = {
+                    model,
+                    messages,
+                    temperature: 0.7,
+                    max_tokens: 450
+                };
+                if (model.includes('gpt-oss') || model.includes('compound')) {
+                    requestPayload.reasoning_format = 'hidden';
+                }
+
                 const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${apiKey}`
                     },
-                    body: JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 350 })
+                    body: JSON.stringify(requestPayload)
                 });
 
                 if (!response.ok) {
@@ -774,7 +802,8 @@ VOICE & TEXT-TO-SPEECH FORMATTING:
                 }
 
                 const data = await response.json();
-                const aiText = data.choices[0].message.content.replace(/\*/g, '').replace(/#/g, '').trim();
+                const rawAiText = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) ? data.choices[0].message.content : '';
+                const aiText = rawAiText.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/\*/g, '').replace(/#/g, '').trim();
 
                 appendMessage('Assistant', aiText, false);
                 conversationTurns.push({ role: 'assistant', content: aiText });

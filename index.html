@@ -60,7 +60,7 @@
 
                 <div class="status-badge" id="statusBadge">
                     <span class="status-dot green" id="mainStatusDot"></span>
-                    <span class="status-text" id="statusText">Groq LLaMA Connected</span>
+                    <span class="status-text" id="statusText">Groq AI Connected</span>
                 </div>
             </div>
         </header>
@@ -172,7 +172,7 @@
 
         <!-- Footer -->
         <footer class="app-footer">
-            <p>Powered by <strong>Groq Cloud API</strong> (LLaMA 3.3) &amp; <strong>Web Speech API</strong> (100% Free Static Space)</p>
+            <p>Powered by <strong>Groq Cloud API</strong> (GPT-OSS 120B / 20B) &amp; <strong>Web Speech API</strong> (100% Free Static Space)</p>
         </footer>
     </div>
 
@@ -194,7 +194,7 @@
 
             <div class="modal-body">
                 <p class="modal-description">
-                    Ace The Interview runs on Groq's high-speed LLaMA inference engine. Enter your Groq API key below to enable intelligent candidate voice answers. Your key is stored locally in your browser only.
+                    Ace The Interview runs on Groq's high-speed inference engine. Enter your Groq API key below to enable intelligent candidate voice answers. Your key is stored locally in your browser only.
                 </p>
 
                 <div id="apiKeyAlertBox" class="api-alert-box hidden"></div>
@@ -214,10 +214,12 @@
                 <div class="api-key-input-group">
                     <label for="groqModelSelect">Groq LLM Model:</label>
                     <select id="groqModelSelect" class="styled-select">
-                        <option value="llama-3.1-8b-instant" selected>Llama 3.1 8B Instant (Recommended · Universal Access &amp; Fastest)</option>
-                        <option value="llama-3.3-70b-versatile">Llama 3.3 70B Versatile (High Capacity)</option>
-                        <option value="llama-3.3-70b-specdec">Llama 3.3 70B Speculative Decoding</option>
-                        <option value="llama3-8b-8192">Llama 3 8B (8192 Context)</option>
+                        <option value="openai/gpt-oss-120b" selected>GPT-OSS 120B (Recommended · Flagship Interview Quality)</option>
+                        <option value="openai/gpt-oss-20b">GPT-OSS 20B (Ultra-Fast Response &amp; Low Latency)</option>
+                        <option value="groq/compound-mini">Groq Compound Mini (Fast Compound System)</option>
+                        <option value="groq/compound">Groq Compound (Agentic AI System)</option>
+                        <option value="llama-3.3-70b-versatile">Llama 3.3 70B Versatile (Legacy)</option>
+                        <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant (Legacy)</option>
                     </select>
                     <span class="input-hint">Auto-Fallback: If the selected model is not available for your key, the app automatically switches to an available model.</span>
                 </div>

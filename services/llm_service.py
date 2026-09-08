@@ -3,6 +3,7 @@ Language Model (LLM) Service Layer.
 Manages LLM provider interactions and response sanitization.
 """
 
+import re
 from typing import List, Dict
 from models.groq_model import GroqModel
 from conversation.memory import ConversationMemory
@@ -27,6 +28,7 @@ class LLMService:
 
         response_text = self.llm_model.generate_response(messages)
         
-        # Clean response text to eliminate audio synthesis artifacts (e.g. markdown asterisks)
-        cleaned_text = response_text.replace("*", "").replace("#", "").strip()
+        # Clean response text: strip reasoning thoughts and audio synthesis artifacts (e.g. markdown asterisks)
+        cleaned_text = re.sub(r"<think>[\s\S]*?</think>", "", response_text, flags=re.IGNORECASE).strip()
+        cleaned_text = cleaned_text.replace("*", "").replace("#", "").strip()
         return cleaned_text

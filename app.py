@@ -59,7 +59,7 @@ def _process_voice_turn_impl(audio_path, chat_transcript):
         if not user_text.strip():
             return None, chat_transcript, "Could not recognize speech. Please speak again."
 
-        # Step 2: LLM Response (Groq LLaMA 3.3)
+        # Step 2: LLM Response (Groq AI)
         history.add_user_message(user_text)
         assistant_text = llm_service.get_response(memory)
         history.add_assistant_message(assistant_text)
@@ -82,7 +82,7 @@ with gr.Blocks(theme=gr.themes.Soft(), title="Ace The Interview - Voice AI") as 
     gr.Markdown(
         """
         # 🎙️ Ace The Interview - Voice AI Assistant
-        **Powered by Groq Cloud API (LLaMA 3.3)** &amp; **Hugging Face STT/TTS (Whisper & MMS)**
+        **Powered by Groq Cloud API (GPT-OSS 120B / 20B)** &amp; **Hugging Face STT/TTS (Whisper & MMS)**
         
         Click the **Microphone** button below, speak your answer or question, and click **Submit Voice**!
         """
