@@ -30,7 +30,7 @@ HF_TOKEN = os.getenv("HF_TOKEN", "")
 # Groq LLM Configurations
 GROQ_MODEL_NAME = os.getenv("GROQ_MODEL_NAME", "openai/gpt-oss-120b")
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7"))
-LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "300"))
+LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "280"))
 LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "15"))
 
 
